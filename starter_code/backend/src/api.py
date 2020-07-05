@@ -14,19 +14,21 @@ CORS()
 db_drop_and_create_all()
 
 # ROUTES
-@app.route('/drinks')
+
+
+@app.route('/drinks', methods=['GET'])
 def get_all_drinks():
     try:
         drinks = Drink.query.all()
         if drinks:
-            print(drinks)
+            # print(drinks)
             data = [find.short() for find in drinks]
+            print(type(data))
         else:
             data = []
     except Exception as e:
-        print(e)
         abort(500)
-    return jsonify({"success": True, "drinks": data}, 200)
+    return jsonify({"success": True, "drinks":data })
 
 
 
@@ -44,9 +46,8 @@ def get_drinks_detail(jwt):
             "sccusse": True,
             "drinks": data})
     except Exception as e:
-        print(e)
+        # print(e)
         abort(401)
-
 
 
 
@@ -55,64 +56,65 @@ def get_drinks_detail(jwt):
 def post_drink(jwt):
 
     data = request.get_json()
-    title = data['title']
-    recipe = data['recipe']
-    # recipe=str(recipe)
-    # print(type(recipe))   
-    
-    recipe = json.dumps(recipe)
-    # print(json.dumps(recipe))
-    
-    
-    drink = Drink(title=title, recipe=recipe)
-     # print(drink,".")
-    
-    drink.insert()
+    # print(data,jwt)
+    try:
+        title = data['title']
+        recipe = data['recipe']
+        
+        recipe = json.dumps(recipe)
+        drink = Drink(title=title, recipe=recipe)
+        # print(drink)
+        
+        drink.insert()
+        
+        if drink is None:
+                abort(405)
+    except Exception:
+        abort(405)
     return jsonify({
         'success': True,
-        'drink': drink.long()
-    }, 200)
+        'drink': [drink.long()]
+    })
 
 
 
-@app.route('/drinks/<int:drink_id>',  methods=['PATCH'])
+@app.route('/drinks/<int:id>', methods=['PATCH'])
 @requires_auth('patch:drinks')
-def update_drinks(jwt, drink_id):
+def update_drink(jwt, id):
+    body = request.get_json()
+    drink = Drink.query.filter(Drink.id == id).one_or_none()
 
-    body=request.get_json()
+    if not drink:
+        abort(404)
 
     try:
-        drink=Drink.query.filter(Drink.id == drink_id).one_or_none()
-        if drink is None:
-            abort(404)
-
-        title=body['title']
-        title=body.get('title')
-        drink.title=title
+        title = body.get('title')
         
+        if title:
+            drink.title = title
+
+       
         drink.update()
-        return jsonify({
-            "success":True,
-            "drink":drink.long()
-        })   
-    except:
+    except BaseException:
         abort(400)
 
+    return jsonify({'success': True, 'drinks': [drink.long()]}), 200
 
 @app.route('/drinks/<int:drink_id>', methods=['DELETE'])
 @requires_auth('delete:drinks')
 def delete_drink(jwt, drink_id ):
     try:
         drink=Drink.query.filter(Drink.id == drink_id).one_or_none()
-        # if drink is None:
-        #     abort(404)
+        if drink is None:
+            abort(404)
         drink.delete()
-        return jsonify({
-            "success":True,
-            "drink":drink_id
-        })
     except:
         abort(400)
+    return jsonify({
+        "success":True,
+        "drink":drink_id
+    })
+    
 
 
 # Error Handling
@@ -131,9 +133,15 @@ def get_authError(get):
         'success': False,
         'error': get.status_code,
         'message': get.error
-    },401)
+    }),401
 
-
+@app.errorhandler(405)
+def methode_not_allwod(error):
+    return jsonify({
+                    "success": False,
+                    "error": 422,
+                    "message": "Methode not allwod"
+                    }), 405
 
 
 
